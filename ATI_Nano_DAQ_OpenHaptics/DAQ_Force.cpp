@@ -124,6 +124,7 @@ int32 CVICALLBACK EveryNCallback(TaskHandle taskHandle, int32 everyNsamplesEvent
 				sensorCalibCount++;
 				Bias(cal, mean);
 				biased = false;
+				printf("Bias calculation completed\n");
 			}
 			else if (sensorCalibCount > biasNum)
 			{

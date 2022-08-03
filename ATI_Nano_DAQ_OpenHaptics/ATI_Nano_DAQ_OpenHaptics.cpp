@@ -36,7 +36,7 @@ int main()
         char mbstr[100];
         std::strftime(mbstr, sizeof(mbstr), "_%Y-%m-%d_%H-%M-%S", std::localtime(&now));
         std::string filename = FILE + std::string(mbstr) + EXTENSION;
-        myfile.open(FILE, std::ios::out);
+        myfile.open(filename, std::ios::out);
     }
     if ((initATINano() == -1))
         return 0;
@@ -46,6 +46,7 @@ int main()
     
     if (myfile.is_open()) {
         myfile.close();
+        printf("\n\n Data saved to file.\n");
     }
     StopForceThread();
 }
@@ -139,7 +140,7 @@ HDCallbackCode HDCALLBACK deviceCallback(void* data)
         std::chrono::duration<double, std::milli> elapsed_time = current - previous;
         time_seconds = elapsed_time.count() / 1000;
     }
-    int p[3] = { position[0], position[1], position[2] };
+    float p[3] = { position[0], position[1], position[2] };
     previous = current;
 
     int choice = (int)r - 48;
@@ -149,7 +150,7 @@ HDCallbackCode HDCALLBACK deviceCallback(void* data)
         WriteData(p, FT, time_seconds);
     
 
-    std::cout << position[0] << "\t" << position[1] << "\t" << position[2] << FT[0] << "\t" << FT[1] << "\t" << FT[2] << "\t" << FT[3] << "\t" << FT[4] << "\t" << FT[5] << std::endl;
+    //std::cout << position[0] << "\t" << position[1] << "\t" << position[2] << std::endl;
 
     /* End haptics frame. */
     hdEndFrame(hHD);
@@ -172,17 +173,17 @@ HDCallbackCode HDCALLBACK deviceCallback(void* data)
     return HD_CALLBACK_CONTINUE;
 }
 
-void DisplayData(int* position, float* data, double elapsed_time)
+void DisplayData(float* position, float* data, double elapsed_time)
 {
     printf("\nResult:\n");
     for (int i = 0; i < 3; i++)
-        printf("%i ", position[i]);
+        printf("%9.4f", position[i]);
     for (int i = 0; i < MAX_VALUES; i++)
         printf("%9.6f ", data[i]);
     printf("%9.6f ", elapsed_time);
 }
 
-void WriteData(int* position, float* data, double elapsed_time)
+void WriteData(float* position, float* data, double elapsed_time)
 {
     if (!myfile.is_open())
         return;

@@ -22,5 +22,5 @@
 
 HDCallbackCode HDCALLBACK deviceCallback(void* data);
 int initHD(void);
-void DisplayData(int* position, float* data, double elapsed_time);
-void WriteData(int* position, float* data, double elapsed_time);
+void DisplayData(float* position, float* data, double elapsed_time);
+void WriteData(float* position, float* data, double elapsed_time);

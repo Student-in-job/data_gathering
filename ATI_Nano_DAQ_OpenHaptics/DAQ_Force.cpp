@@ -1,20 +1,17 @@
 #include "DAQ_Force.h"
 #include <thread>
 
-TaskHandle  taskHandle = 0;
-int32 CVICALLBACK EveryNCallback(TaskHandle taskHandle, int32 everyNsamplesEventType, uInt32 nSamples, void* callbackData);
-int32 CVICALLBACK DoneCallback(TaskHandle taskHandle, int32 status, void* callbackData);
-
+TaskHandle   taskHandle = 0;
 Calibration* cal;		// struct containing calibration information
-float64 voltage[1000];
-int FTCount = 0;
-float FT[MAX_VALUES];            // This array will hold the resultant force/torque vector.
-double sensorCalibSum[MAX_VALUES] = { 0.0f,0.0f,0.0f,0.0f,0.0f,0.0f };
-int sensorCalibCount = 0;
-int biasNum = 100;
-bool biased;
-bool started = false;
-bool stoped = false;
+float64	     voltage[1000];
+int	         FTCount = 0;
+float        FT[MAX_VALUES];            // This array will hold the resultant force/torque vector.
+double       sensorCalibSum[MAX_VALUES] = { 0.0f,0.0f,0.0f,0.0f,0.0f,0.0f };
+int          sensorCalibCount = 0;
+int          biasNum = 100;
+bool         biased;
+bool         started = false;
+bool         stoped = false;
 
 int initATINano()
 {

@@ -1,17 +1,20 @@
 // ATI_Nano_DAQ_OpenHaptics.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
 #include "ATI_Nano_DAQ_OpenHaptics.h"
 #include "DAQ_Force.h"
 
-#define FILE "./data"
-#define EXTENSION ".csv"
+#define FILE                  "./data"
+#define EXTENSION             ".csv"
+#define TARGET_SERVOLOOP_RATE 1000
 
-bool chosen;
-extern bool started;
-char r = '1';
-std::ofstream myfile;
-bool first = true;
+bool            chosen;
+char            r = '1';
+std::ofstream   myfile;
+bool            first = true;
+HDErrorInfo     error;
+HHD             hHD;
 std::chrono::time_point<std::chrono::steady_clock> previous, current;
+
+extern bool started;
 extern bool biased;
 
 extern void doAction(float* data) {}
@@ -51,15 +54,58 @@ int main()
     StopForceThread();
 }
 
+int calibrateHD(void)
+{
+    int supportedCalibrationStyles;
+    int calibrationStyle;
+
+    printf("Calibration\n");
+    printf("Found %s.\n\n", hdGetString(HD_DEVICE_MODEL_TYPE));
+    /* Choose a calibration style.  Some devices may support multiple types of
+       calibration.  In that case, prefer auto calibration over inkwell
+       calibration, and prefer inkwell calibration over reset encoders. */
+    hdGetIntegerv(HD_CALIBRATION_STYLE, &supportedCalibrationStyles);
+    if (supportedCalibrationStyles & HD_CALIBRATION_ENCODER_RESET)
+    {
+        calibrationStyle = HD_CALIBRATION_ENCODER_RESET;
+    }
+    if (supportedCalibrationStyles & HD_CALIBRATION_INKWELL)
+    {
+        calibrationStyle = HD_CALIBRATION_INKWELL;
+    }
+    if (supportedCalibrationStyles & HD_CALIBRATION_AUTO)
+    {
+        calibrationStyle = HD_CALIBRATION_AUTO;
+    }
+
+    if (calibrationStyle == HD_CALIBRATION_ENCODER_RESET)
+    {
+        printf("Please prepare for manual calibration by\n");
+        printf("placing the device at its reset position.\n\n");
+        printf("Press any key to continue...\n");
+
+        _getch();
+
+        hdUpdateCalibration(calibrationStyle);
+        if (hdCheckCalibration() == HD_CALIBRATION_OK)
+        {
+            printf("Calibration complete.\n\n");
+        }
+        if (HD_DEVICE_ERROR(error = hdGetError()))
+        {
+            hduPrintError(stderr, &error, "Reset encoders reset failed.");
+            return -1;
+        }
+    }
+}
+
+
 /******************************************************************************
  Initializes haptics.
 ******************************************************************************/
 int initHD(void)
 {
-    HDErrorInfo error;
-    HDSchedulerHandle handlePosition;
-
-    HHD hHD = hdInitDevice(HD_DEFAULT_DEVICE);
+    hHD = hdInitDevice(HD_DEFAULT_DEVICE);
     if (HD_DEVICE_ERROR(error = hdGetError()))
     {
         hduPrintError(stderr, &error, "Failed to initialize haptic device");
@@ -70,7 +116,31 @@ int initHD(void)
     printf("Found device model: %s.\n\n", hdGetString(HD_DEVICE_MODEL_TYPE));
 
     /* Schedule the main callback that will render forces to the device. */
-    handlePosition = hdScheduleAsynchronous(deviceCallback, 0, HD_MAX_SCHEDULER_PRIORITY);
+    HDSchedulerHandle hServoCallback = hdScheduleAsynchronous(deviceCallback, 0, HD_MAX_SCHEDULER_PRIORITY);
+    if (HD_DEVICE_ERROR(error = hdGetError()))
+    {
+        std::cerr << error << std::endl;
+        std::cerr << "Failed to schedule servoloop callback" << std::endl;
+        hdDisableDevice(hHD);
+        return -1;
+    }
+
+    hdSetSchedulerRate(TARGET_SERVOLOOP_RATE);
+    if (HD_DEVICE_ERROR(error = hdGetError()))
+    {
+        std::cerr << error << std::endl;
+        std::cerr << "Failed to set servoloop rate" << std::endl;
+        hdDisableDevice(hHD);
+        return -1;
+    }
+
+    hdDisable(HD_FORCE_OUTPUT);
+    
+    if (calibrateHD() == -1)
+    {
+        fprintf(stderr, "\nFailed to calibrate the device.\n");
+        return -1;
+    }
 
     while (biased) {}
     //hdEnable(HD_FORCE_OUTPUT);
@@ -87,7 +157,7 @@ int initHD(void)
     while (!_getch())
     {
         /* Periodically check if the gravity well callback has exited. */
-        if (!hdWaitForCompletion(handlePosition, HD_WAIT_CHECK_STATUS))  // Checks if a callback is still scheduled for execution.
+        if (!hdWaitForCompletion(hServoCallback, HD_WAIT_CHECK_STATUS))  // Checks if a callback is still scheduled for execution.
         {
             fprintf(stderr, "Press any key to stop.\n");
             break;
@@ -96,7 +166,7 @@ int initHD(void)
 
     /* For cleanup, unschedule callback and stop the scheduler. */
     hdStopScheduler();          // Typically call this as a frst step for cleanup and shutdown of devices
-    hdUnschedule(handlePosition); // removing the associated callback from the scheduler.
+    hdUnschedule(hServoCallback); // removing the associated callback from the scheduler.
     hdDisableDevice(hHD);       // Disables a device. The handle should not be used afterward
 
     return 0;
@@ -104,8 +174,6 @@ int initHD(void)
 
 /*******************************************************************************
  Servo callback.
- Called every servo loop tick.  Simulates a gravity well, which sucks the device
- towards its center whenever the device is within a certain range.
 *******************************************************************************/
 HDCallbackCode HDCALLBACK deviceCallback(void* data)
 {

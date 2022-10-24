@@ -44,6 +44,8 @@ int main()
     if ((initATINano() == -1))
         return 0;
     StartForceThread();
+    while (biased) {}
+
     if ((initHD() == -1))
         return 0;
     

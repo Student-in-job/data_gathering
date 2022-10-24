@@ -9,7 +9,7 @@
 #define DAQmxErrChk(functionCall) if( DAQmxFailed(error=(functionCall)) ) goto Error; else
 
 #define MAX_VALUES 6
-#define DAQNAME "Dev4/"
+#define DAQNAME "Dev2/"
 //#define CALIB_FILE "FT21423.cal"
 #define CALIB_FILE "FT13162.cal"
 #define CONCAT_DEVICE(p)    (char*)((DAQNAME + std::string(p)).c_str())

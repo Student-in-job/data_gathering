@@ -86,7 +86,7 @@ int calibrateHD(void)
         printf("placing the device at its reset position.\n\n");
         printf("Press any key to continue...\n");
 
-        _getch();
+        char r = getchar();
 
         hdUpdateCalibration(calibrationStyle);
         if (hdCheckCalibration() == HD_CALIBRATION_OK)
@@ -144,7 +144,10 @@ int initHD(void)
         return -1;
     }
 
-    while (biased) {}
+    fprintf(stderr, "\nTo start data gatherinh press any key.\n");
+    r = getchar();
+
+    //while (biased) {}
     //hdEnable(HD_FORCE_OUTPUT);
     hdStartScheduler();
 

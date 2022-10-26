@@ -5,6 +5,8 @@
 #define FILE                  "./data"
 #define EXTENSION             ".csv"
 #define TARGET_SERVOLOOP_RATE 1000
+#define OFFSET_POSITION       1
+#define OFFSET                -47
 
 bool            chosen;
 char            r = '1';
@@ -86,7 +88,7 @@ int calibrateHD(void)
         printf("placing the device at its reset position.\n\n");
         printf("Press any key to continue...\n");
 
-        char r = getchar();
+        while (!_getch()) {}
 
         hdUpdateCalibration(calibrationStyle);
         if (hdCheckCalibration() == HD_CALIBRATION_OK)
@@ -116,7 +118,16 @@ int initHD(void)
     }
 
     printf("Found device model: %s.\n\n", hdGetString(HD_DEVICE_MODEL_TYPE));
+    
+    if (calibrateHD() == -1)
+    {
+        fprintf(stderr, "\nFailed to calibrate the device.\n");
+        return -1;
+    }
 
+    fprintf(stderr, "\nTo start data gathering press any key.\n");
+    while (!_getch()) {}
+    
     /* Schedule the main callback that will render forces to the device. */
     HDSchedulerHandle hServoCallback = hdScheduleAsynchronous(deviceCallback, 0, HD_MAX_SCHEDULER_PRIORITY);
     if (HD_DEVICE_ERROR(error = hdGetError()))
@@ -137,17 +148,7 @@ int initHD(void)
     }
 
     hdDisable(HD_FORCE_OUTPUT);
-    
-    if (calibrateHD() == -1)
-    {
-        fprintf(stderr, "\nFailed to calibrate the device.\n");
-        return -1;
-    }
 
-    fprintf(stderr, "\nTo start data gatherinh press any key.\n");
-    r = getchar();
-
-    //while (biased) {}
     //hdEnable(HD_FORCE_OUTPUT);
     hdStartScheduler();
 
@@ -250,7 +251,10 @@ void DisplayData(float* position, float* data, double elapsed_time)
 {
     printf("\nResult:\n");
     for (int i = 0; i < 3; i++)
-        printf("%9.4f", position[i]);
+        if (i == OFFSET_POSITION)
+            printf("%9.4f", position[i] - OFFSET);
+        else
+            printf("%9.4f", position[i]);
     for (int i = 0; i < MAX_VALUES; i++)
         printf("%9.6f ", data[i]);
     printf("%9.6f ", elapsed_time);
@@ -261,9 +265,11 @@ void WriteData(float* position, float* data, double elapsed_time)
     if (!myfile.is_open())
         return;
 
-    char mbstr[100];
     for (int i = 0; i < 3; i++)
-        myfile << position[i] << ',';
+        if (i == OFFSET_POSITION)
+            myfile << position[i]-OFFSET << ',';
+        else
+            myfile << position[i] << ',';
     for (int i = 0; i < MAX_VALUES; i++)
         myfile << data[i] << ',';
     myfile << elapsed_time;

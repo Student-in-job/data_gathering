@@ -1,6 +1,3 @@
-// ATI_Nano_DAQ_OpenHaptics.cpp : This file contains the 'main' function. Program execution begins and ends there.
-#include "ATI_Nano_DAQ_OpenHaptics.h"
-#include "DAQ_Force.h"
 
 #define FILE                  "./data"
 #define EXTENSION             ".csv"
@@ -11,10 +8,8 @@
 bool            chosen;
 char            r = '1';
 std::ofstream   myfile;
-bool            first = true;
 HDErrorInfo     error;
 HHD             hHD;
-std::chrono::time_point<std::chrono::steady_clock> previous, current;
 
 extern bool started;
 extern bool biased;
@@ -23,30 +18,9 @@ extern void doAction(float* data) {}
 
 int main()
 {
-    while (!chosen) {
-        printf("Choose the action, which you would like to do:\n");
-        printf("\t [1] : Display data.\n");
-        printf("\t [2] : Write data to a file.\n");
-        printf("\t [3] : Display data and write them to file.\n");
-        r = getchar();
-        switch (r) {
-        case '1': chosen = true; break;
-        case '2': chosen = true; break;
-        case '3': chosen = true; break;
-        }
-    }
-    int choice = (int)r - 48;
-    if ((choice & 2) == 2) {
-        const std::time_t now = std::time(nullptr);
-        char mbstr[100];
-        std::strftime(mbstr, sizeof(mbstr), "_%Y-%m-%d_%H-%M-%S", std::localtime(&now));
-        std::string filename = FILE + std::string(mbstr) + EXTENSION;
-        myfile.open(filename, std::ios::out);
-    }
-    if ((initATINano() == -1))
-        return 0;
-    StartForceThread();
-    while (biased) {}
+    std::strftime(mbstr, sizeof(mbstr), "_%Y-%m-%d_%H-%M-%S", std::localtime(&now));
+    std::string filename = FILE + std::string(mbstr) + EXTENSION;
+    myfile.open(filename, std::ios::out);
 
     if ((initHD() == -1))
         return 0;
@@ -55,7 +29,6 @@ int main()
         myfile.close();
         printf("\n\n Data saved to file.\n");
     }
-    StopForceThread();
 }
 
 int calibrateHD(void)
@@ -189,6 +162,7 @@ int initHD(void)
 *******************************************************************************/
 HDCallbackCode HDCALLBACK deviceCallback(void* data)
 {
+    hduMatrix prev, transformMatrix;
     HDErrorInfo error;
     hduVector3Dd position;
     hduVector3Dd force;
@@ -201,33 +175,16 @@ HDCallbackCode HDCALLBACK deviceCallback(void* data)
 
     /* Get the current position of the device. */
     hdGetDoublev(HD_CURRENT_POSITION, position);
+    hdGetDoublev(HD_CURRENT_TRANSFORM, transformMatrix);
 
-    memset(force, 0, sizeof(hduVector3Dd));
-
-    float FT[MAX_VALUES] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
-    getData(FT);
-    double time_seconds;
-
-    if (first)
-    {
-        first = false;
-        previous = std::chrono::high_resolution_clock::now();
-        time_seconds = 0.0f;
-    }
-    else
-    {
-        current = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double, std::milli> elapsed_time = current - previous;
-        time_seconds = elapsed_time.count() / 1000;
-    }
     float p[3] = { position[0], position[1], position[2] };
     previous = current;
+    float tm[16] = {0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0,  0, 0, 0, 0};
+    for(i:0; i<12; i++)
+       tm[i] = transformMatrix[i];
 
-    int choice = (int)r - 48;
-    if ((choice & 1) == 1)
-        DisplayData(p, FT, time_seconds);
-    if ((choice & 2) == 2)
-        WriteData(p, FT, time_seconds);
+    DisplayData(p, tm, time_seconds);
+    WriteData(p, tm, time_seconds);
     
     /* End haptics frame. */
     hdEndFrame(hHD);
@@ -250,31 +207,27 @@ HDCallbackCode HDCALLBACK deviceCallback(void* data)
     return HD_CALLBACK_CONTINUE;
 }
 
-void DisplayData(float* position, float* data, double elapsed_time)
+void DisplayData(float* position, float* data)
 {
     printf("\nResult:\n");
     for (int i = 0; i < 3; i++)
-        if (i == OFFSET_POSITION)
-            printf("%9.4f", position[i] - OFFSET);
-        else
-            printf("%9.4f", position[i]);
-    for (int i = 0; i < MAX_VALUES; i++)
+        printf("%9.4f", position[i]);
+    for (int i = 0; i < 12; i++)
         printf("%9.6f ", data[i]);
-    printf("%9.6f ", elapsed_time);
 }
 
-void WriteData(float* position, float* data, double elapsed_time)
+void WriteData(float* position, float* data)
 {
     if (!myfile.is_open())
         return;
 
     for (int i = 0; i < 3; i++)
-        if (i == OFFSET_POSITION)
-            myfile << position[i]-OFFSET << ',';
-        else
-            myfile << position[i] << ',';
-    for (int i = 0; i < MAX_VALUES; i++)
+        myfile << position[i]<< ',';
+    myfile << std::endl
+    for (int i = 0; i < 12; i++)
+        if( i%4 == 0)
+            myfile << std::endl;
         myfile << data[i] << ',';
-    myfile << elapsed_time;
+    myfile << std::endl;
     myfile << std::endl;
 }

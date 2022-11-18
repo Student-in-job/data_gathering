@@ -67,7 +67,7 @@ int32 CVICALLBACK initDAQ()
 	/*********************************************/
 	DAQmxErrChk(DAQmxStartTask(taskHandle));
 
-	printf("Generating voltage continuously. Press Enter to interrupt\n");
+	//printf("Generating voltage continuously. Press Enter to interrupt\n");
 	started = true;
 	while(!stoped)
 	{ }

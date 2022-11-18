@@ -63,8 +63,7 @@ int calibrateHD(void)
     int supportedCalibrationStyles;
     int calibrationStyle;
 
-    printf("Calibration\n");
-    printf("Found %s.\n\n", hdGetString(HD_DEVICE_MODEL_TYPE));
+    printf("\n \t ---------- Calibration ----------\n");
     /* Choose a calibration style.  Some devices may support multiple types of
        calibration.  In that case, prefer auto calibration over inkwell
        calibration, and prefer inkwell calibration over reset encoders. */
@@ -86,14 +85,14 @@ int calibrateHD(void)
     {
         printf("Please prepare for manual calibration by\n");
         printf("placing the device at its reset position.\n\n");
-        printf("Press any key to continue...\n");
+        printf("Press 't' key and Enter to continue...\n");
 
-        while (!_getch()) {}
+        while (Pause('t')) {}
 
         hdUpdateCalibration(calibrationStyle);
         if (hdCheckCalibration() == HD_CALIBRATION_OK)
         {
-            printf("Calibration complete.\n\n");
+            printf("\n\t ---------- Calibration complete. ----------\n\n");
         }
         if (HD_DEVICE_ERROR(error = hdGetError()))
         {
@@ -124,15 +123,9 @@ int initHD(void)
         fprintf(stderr, "\nFailed to calibrate the device.\n");
         return -1;
     }
-    bool paused = true;
-    char stopchar='t';
-    fprintf(stderr, "\nTo start data gathering press any key.\n");
-    while (paused)
-    {
-        stopchar = getchar();
-        if (stopchar != 't')
-            paused = false;
-    }
+
+    fprintf(stderr, "\nTo start data gathering press 't' key and Enter to continue....\n");
+    while (Pause('t')) {}
     
     /* Schedule the main callback that will render forces to the device. */
     HDSchedulerHandle hServoCallback = hdScheduleAsynchronous(deviceCallback, 0, HD_MAX_SCHEDULER_PRIORITY);
@@ -277,4 +270,13 @@ void WriteData(float* position, float* data, double elapsed_time)
         myfile << data[i] << ',';
     myfile << elapsed_time;
     myfile << std::endl;
+}
+
+bool Pause(char original)
+{
+    char stopchar = getchar();
+    if (stopchar == original)
+        return false;
+    else
+        return true;
 }

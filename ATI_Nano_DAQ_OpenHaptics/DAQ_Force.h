@@ -22,3 +22,4 @@ void  doAction(float* data);
 void  StartForceThread();
 void  StopForceThread();
 void  getData(float (&data)[MAX_VALUES]);
+bool Pause(char original);

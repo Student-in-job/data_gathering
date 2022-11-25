@@ -7,6 +7,9 @@
 #define TARGET_SERVOLOOP_RATE 1000
 #define OFFSET_POSITION       1
 #define OFFSET                -47
+#define GRAVITY_ACCELERATION  9.8067
+#define MASS                  0.026
+#define GM_POSITION           2
 
 bool            chosen;
 char            r = '1';

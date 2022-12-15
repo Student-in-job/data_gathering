@@ -7,18 +7,11 @@
 #include <string>
 
 #define DAQmxErrChk(functionCall) if( DAQmxFailed(error=(functionCall)) ) goto Error; else
-#if !defined(DAQNAME)
-	#define DAQNAME "Dev1/"
-#endif
-#if !defined(MAX_VALUES)
-	#define MAX_VALUES 6
-#endif
-#define CONCAT_DEVICE(p)    (char*)((DAQNAME + std::string(p)).c_str())
+#define DAQNAME "Dev2/"
+#define MAX_VALUES 6
+#define CALIB_FILE "FT13162.cal"
 
-#if !defined(CALIB_FILE)
-	#define CALIBRATION_FILE_ERROR 1
-	#define CALIB_FILE ""
-#endif
+#define CONCAT_DEVICE(p)    (char*)((DAQNAME + std::string(p)).c_str())
 
 int   initATINano();
 int32 CVICALLBACK initDAQ();

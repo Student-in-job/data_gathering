@@ -8,18 +8,19 @@ int	         FTCount = 0;
 float        FT[MAX_VALUES];            // This array will hold the resultant force/torque vector.
 double       sensorCalibSum[MAX_VALUES];
 int          sensorCalibCount = 0;
-int          biasNum = 100;
+int          biasNum = 10;
 bool         biased;
 bool         started = false;
 bool         stoped = false;
 
 int initATINano()
 {
-	if (CALIBRATION_FILE_ERROR)
+	if (CALIB_FILE == "")
 	{
 		printf("Calibration file not defined\n");
 		return 0;
 	}
+
 	short sts;
 	cal = createCalibration((char*)CALIB_FILE, 1);
 	if (cal == NULL)

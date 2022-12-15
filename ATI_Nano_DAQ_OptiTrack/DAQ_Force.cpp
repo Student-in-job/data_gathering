@@ -59,7 +59,10 @@ int32 CVICALLBACK initDAQ()
 
 	DAQmxErrChk(DAQmxCreateTask("forceRead", &taskHandle));
 	for (int index = 0; index < MAX_VALUES; index++)
-		DAQmxErrChk(DAQmxCreateAIVoltageChan(taskHandle, CONCAT_DEVICE("ai" + static_cast<char>(index)), "", DAQmx_Val_Cfg_Default, -10.0, 10.0, DAQmx_Val_Volts, NULL));
+	{
+		std::string channel = "ai" + std::to_string(index);
+		DAQmxErrChk(DAQmxCreateAIVoltageChan(taskHandle, CONCAT_DEVICE(channel), "", DAQmx_Val_Cfg_Default, -10.0, 10.0, DAQmx_Val_Volts, NULL));
+	}
 	//DAQmxErrChk(DAQmxCreateAIVoltageChan(taskHandle, CONCAT_DEVICE("ai0"), "", DAQmx_Val_Cfg_Default, -10.0, 10.0, DAQmx_Val_Volts, NULL));
 	//DAQmxErrChk(DAQmxCreateAIVoltageChan(taskHandle, CONCAT_DEVICE("ai1"), "", DAQmx_Val_Cfg_Default, -10.0, 10.0, DAQmx_Val_Volts, NULL));
 	//DAQmxErrChk(DAQmxCreateAIVoltageChan(taskHandle, CONCAT_DEVICE("ai2"), "", DAQmx_Val_Cfg_Default, -10.0, 10.0, DAQmx_Val_Volts, NULL));

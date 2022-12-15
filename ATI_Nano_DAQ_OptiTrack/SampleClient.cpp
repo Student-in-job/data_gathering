@@ -278,7 +278,7 @@ void DisplayData(float* position, float* data, double elapsed_time)
     std::cout << std::endl;
     std::cout<<"Result:"<<std::endl;
     for (int i = 0; i < 3; i++)
-        std::cout << position[i] << '\t';
+        std::cout << position[i] * 1000 << '\t';
     for (int i = 0; i < MAX_VALUES; i++)
         std::cout << data[i] << '\t';
     std::cout << elapsed_time;
@@ -290,7 +290,7 @@ void WriteData(float* position, float* data, double elapsed_time)
         return;
 
     for (int i = 0; i < 3; i++)
-        g_outputFile << position[i] << ',';
+        g_outputFile << position[i] * 1000 << ',';
     for (int i = 0; i < MAX_VALUES; i++)
         g_outputFile << data[i] << ',';
     g_outputFile << elapsed_time;

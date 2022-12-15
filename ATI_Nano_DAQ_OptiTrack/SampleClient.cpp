@@ -18,7 +18,7 @@ Usage [optional]:
 #include "DAQ_Force.h"
 
 #include <iostream>
-#define SERVER_IP_ADDRESS 192.168.0.63
+#define SERVER_IP_ADDRESS "192.168.0.63"
 
 #define MAX_VALUES 6
 #define DAQNAME "Dev2/"
@@ -47,6 +47,13 @@ int main( int argc, char* argv[] )
     unsigned char ver[4];
     NatNet_GetVersion( ver );
     printf( "NatNet Sample Client (NatNet ver. %d.%d.%d.%d)\n", ver[0], ver[1], ver[2], ver[3] );
+
+    g_connectParams.connectionType = ConnectionType_Multicast;
+    g_connectParams.serverAddress = SERVER_IP_ADDRESS;
+    g_connectParams.localAddress = SERVER_IP_ADDRESS;
+    g_connectParams.serverCommandPort = NATNET_DEFAULT_PORT_COMMAND;
+    g_connectParams.serverDataPort = NATNET_DEFAULT_PORT_DATA;
+    g_connectParams.multicastAddress = NATNET_DEFAULT_MULTICAST_ADDRESS;
 
     // Install logging callback
     NatNet_SetLogCallback( MessageHandler );
@@ -79,6 +86,8 @@ int main( int argc, char* argv[] )
         printf( "Looking for servers on the local network.\n" );
         printf( "Press the number key that corresponds to any discovered server to connect to that server.\n" );
         printf( "Press Q at any time to quit.\n\n" );
+
+        goto CONNECT;
 
         NatNetDiscoveryHandle discovery;
         NatNet_CreateAsyncServerDiscovery( &discovery, ServerDiscoveredCallback );
@@ -153,6 +162,9 @@ int main( int argc, char* argv[] )
         }
     }
 
+
+CONNECT:
+    
     int iResult;
 
     // Connect to Motive

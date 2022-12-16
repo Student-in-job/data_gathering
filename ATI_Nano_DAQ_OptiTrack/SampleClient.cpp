@@ -5,19 +5,13 @@ SampleClient.cpp
 This program connects to a NatNet server, receives a data stream, and writes that data stream
 to an cvs file.  The purpose is to illustrate using the NatNetClient class.
 
-Usage [optional]:
-
-	SampleClient [ServerIP] [LocalIP] [OutputFilename]
-
-	[ServerIP]			IP address of the server (e.g. 192.168.0.107) ( defaults to local machine)
-	[OutputFilename]	Name of points file (pts) to write out.  defaults to Client-output.pts
-
 */
 
 #include "SampleClient.h"
 #include "DAQ_Force.h"
 
 #include <iostream>
+#include <array>
 #define SERVER_IP_ADDRESS "192.168.0.63"
 
 // Extern declaration from DAQ_Force.h
@@ -38,6 +32,7 @@ char r = '1';
 float forceData[MAX_VALUES] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
 bool first = true;
 std::chrono::time_point<std::chrono::steady_clock> previous, current;
+std::vector<std::array<float, 10>> dataPoints;
 
 int main( int argc, char* argv[] )
 {
@@ -151,6 +146,10 @@ int main( int argc, char* argv[] )
 	}
 
     StopForceThread();
+    if ((choice & 2) == 2)
+        FlushData();
+    dataPoints.clear();
+    std::vector<std::array<float,10>>().swap(dataPoints);
     if (g_outputFile.is_open())
     {
         g_outputFile.close();
@@ -229,8 +228,10 @@ void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData)
     int choice = (int)r - 48;
     if ((choice & 1) == 1)
         DisplayData(position, forceData, time_seconds);
+    std::array<float, 10> point = { position[0], position[1], position[2], forceData[0], forceData[1],
+        forceData[2], forceData[3], forceData[4], forceData[5], (float) time_seconds};
     if ((choice & 2) == 2)
-        WriteData(position, forceData, time_seconds);
+        dataPoints.push_back(point);
 }
 
 
@@ -284,17 +285,19 @@ void DisplayData(float* position, float* data, double elapsed_time)
     std::cout << elapsed_time;
 }
 
-void WriteData(float* position, float* data, double elapsed_time)
+void FlushData()
 {
     if (!g_outputFile.is_open())
         return;
 
-    for (int i = 0; i < 3; i++)
-        g_outputFile << position[i] * 1000 << ',';
-    for (int i = 0; i < MAX_VALUES; i++)
-        g_outputFile << data[i] << ',';
-    g_outputFile << elapsed_time;
-    g_outputFile << std::endl;
+    std::array<float, 10> point;
+    for (int i = 0; i < dataPoints.size(); i++)
+    {
+        point = dataPoints[i];
+        for (int j = 0; j < 9; j++)
+            g_outputFile << point[j] << ',';
+        g_outputFile << point[9] << std::endl;
+    }
 }
 
 #ifndef _WIN32

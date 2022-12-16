@@ -28,4 +28,4 @@ void NATNET_CALLCONV DataHandler(sFrameOfMocapData* data, void* pUserData);    /
 void NATNET_CALLCONV MessageHandler(Verbosity msgType, const char* msg);      // receives NatNet error messages
 int ConnectClient();
 void DisplayData(float* position, float* data, double elapsed_time);
-void WriteData(float* position, float* data, double elapsed_time);
+void FlushData();

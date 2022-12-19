@@ -18,19 +18,19 @@ bool            first = true;
 HDErrorInfo     error;
 HHD             hHD;
 std::chrono::time_point<std::chrono::steady_clock> previous, current;
+std::vector<std::array<float, 10>> dataPoints;
 
 extern bool started;
-extern bool biased;
 
 extern void doAction(float* data) {}
 
 int main()
 {
     while (!chosen) {
-        printf("Choose the action, which you would like to do:\n");
-        printf("\t [1] : Display data.\n");
-        printf("\t [2] : Write data to a file.\n");
-        printf("\t [3] : Display data and write them to file.\n");
+        Info("Choose the action, which you would like to do:\n");
+        Info("\t [1] : Display data.\n");
+        Info("\t [2] : Write data to a file.\n");
+        Info("\t [3] : Display data and write them to file.\n");
         r = getchar();
         switch (r) {
         case '1': chosen = true; break;
@@ -49,14 +49,16 @@ int main()
     if ((initATINano() == -1))
         return 0;
     StartForceThread();
-    while (biased) {}
 
     if ((initHD() == -1))
         return 0;
     
+    if ((choice & 2) == 2)
+        FlushData();
+
     if (myfile.is_open()) {
         myfile.close();
-        printf("\n\n Data saved to file.\n");
+        Info("\n\n Data saved to file.\n");
     }
     StopForceThread();
 }
@@ -66,7 +68,7 @@ int calibrateHD(void)
     int supportedCalibrationStyles;
     int calibrationStyle;
 
-    printf("\n \t ---------- Calibration ----------\n");
+    Info("\n \t ---------- Calibration ----------\n");
     /* Choose a calibration style.  Some devices may support multiple types of
        calibration.  In that case, prefer auto calibration over inkwell
        calibration, and prefer inkwell calibration over reset encoders. */
@@ -86,16 +88,16 @@ int calibrateHD(void)
 
     if (calibrationStyle == HD_CALIBRATION_ENCODER_RESET)
     {
-        printf("Please prepare for manual calibration by\n");
-        printf("placing the device at its reset position.\n\n");
-        printf("Press 't' key and Enter to continue...\n");
+        Info("Please prepare for manual calibration by\n");
+        Info("placing the device at its reset position.\n\n");
+        Info("Press 't' key and Enter to continue...\n");
 
         while (Pause('t')) {}
 
         hdUpdateCalibration(calibrationStyle);
         if (hdCheckCalibration() == HD_CALIBRATION_OK)
         {
-            printf("\n\t ---------- Calibration complete. ----------\n\n");
+            Info("\n\t ---------- Calibration complete. ----------\n\n");
         }
         if (HD_DEVICE_ERROR(error = hdGetError()))
         {
@@ -127,7 +129,7 @@ int initHD(void)
         return -1;
     }
 
-    fprintf(stderr, "\nTo start data gathering press 't' key and Enter to continue....\n");
+    Info("\nTo start data gathering press 't' key and Enter to continue....\n");
     while (Pause('t')) {}
     
     /* Schedule the main callback that will render forces to the device. */
@@ -219,11 +221,12 @@ HDCallbackCode HDCALLBACK deviceCallback(void* data)
     float p[3] = { position[0], position[1], position[2] };
     previous = current;
 
+    std::array<float, 10> point = { p[0], p[1], p[2], FT[0], FT[1], FT[2], FT[3], FT[4], FT[5], (float)time_seconds };
+    dataPoints.push_back(point);
+
     int choice = (int)r - 48;
     if ((choice & 1) == 1)
         DisplayData(p, FT, time_seconds);
-    if ((choice & 2) == 2)
-        WriteData(p, FT, time_seconds);
     
     /* End haptics frame. */
     hdEndFrame(hHD);
@@ -232,8 +235,7 @@ HDCallbackCode HDCALLBACK deviceCallback(void* data)
        is detected. */
     if (HD_DEVICE_ERROR(error = hdGetError()))
     {
-        hduPrintError(stderr, &error,
-            "Error getting data from device.\n");
+        hduPrintError(stderr, &error, "Error getting data from device.\n");
 
         if (hduIsSchedulerError(&error))
         {
@@ -248,31 +250,33 @@ HDCallbackCode HDCALLBACK deviceCallback(void* data)
 
 void DisplayData(float* position, float* data, double elapsed_time)
 {
-    printf("\nResult:\n");
+    std::cout << "Result:" << std::endl;
     for (int i = 0; i < 3; i++)
         if (i == OFFSET_POSITION)
-            printf("%9.4f", position[i] - OFFSET);
+            std::cout << position[i] - OFFSET << " ";
         else
-            printf("%9.4f", position[i]);
+            std::cout << position[i] << " ";
     for (int i = 0; i < MAX_VALUES; i++)
-        printf("%9.6f ", data[i]);
-    printf("%9.6f ", elapsed_time);
+        std::cout << data[i] << " ";
+    std::cout << elapsed_time << std::endl;
 }
 
-void WriteData(float* position, float* data, double elapsed_time)
+void FlushData()
 {
     if (!myfile.is_open())
         return;
 
-    for (int i = 0; i < 3; i++)
-        if (i == OFFSET_POSITION)
-            myfile << position[i]-OFFSET << ',';
-        else
-            myfile << position[i] << ',';
-    for (int i = 0; i < MAX_VALUES; i++)
-        myfile << data[i] << ',';
-    myfile << elapsed_time;
-    myfile << std::endl;
+    std::array<float, 10> point;
+    for (int i = 0; i < dataPoints.size(); i++)
+    {
+        point = dataPoints[i];
+        for (int j = 0; j < 9; j++)
+            if (j == OFFSET_POSITION)
+                myfile << point[j] - OFFSET << ',';
+            else
+                myfile << point[j] << ',';
+        myfile << point[9] << std::endl;
+    }
 }
 
 bool Pause(char original)
@@ -282,4 +286,15 @@ bool Pause(char original)
         return false;
     else
         return true;
+}
+
+// Redefine method to show message on different output
+void Info(std::string message)
+{
+    std::cout << message << std::endl;
+}
+// Redefine method to show error message
+void Error(std::string message)
+{
+    std::cout << message << std::endl;
 }

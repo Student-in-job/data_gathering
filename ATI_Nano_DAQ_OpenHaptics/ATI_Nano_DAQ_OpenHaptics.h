@@ -19,8 +19,13 @@
 #include <iostream>
 #include <chrono>
 #include <time.h>
+#include <vector>
+#include <array>
 
 HDCallbackCode HDCALLBACK deviceCallback(void* data);
 int  initHD(void);
 void DisplayData(float* position, float* data, double elapsed_time);
-void WriteData(float* position, float* data, double elapsed_time);
+void FlushData();
+bool Pause(char original);
+void Info(std::string message);
+void Error(std::string message);

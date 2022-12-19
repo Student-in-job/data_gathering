@@ -2,16 +2,13 @@
 #include <thread>
 
 TaskHandle   taskHandle = 0;
-Calibration* cal;		// struct containing calibration information
+Calibration* cal;		       // struct containing calibration information
 float64	     voltage[1000];
-int	         FTCount = 0;
-float        FT[MAX_VALUES];            // This array will hold the resultant force/torque vector.
-double       sensorCalibSum[MAX_VALUES] = { 0.0f,0.0f,0.0f,0.0f,0.0f,0.0f };
-int          sensorCalibCount = 0;
+float        FT[MAX_VALUES];   // This array will hold the resultant force/torque vector.
 int          biasNum = 100;
-bool         biased;
 bool         started = false;
 bool         stoped = false;
+bool         biased;
 
 int initATINano()
 {
@@ -38,17 +35,60 @@ int initATINano()
 	case 2: printf("Invalid torque units"); return -1;
 	default: printf("Unknown error"); return -1;
 	}
-	biased = true;
 
+	biased = true;
 	printf("\nCalibration of sensor: Success\n");
 	return 0;
+}
+
+void removeBias()
+{
+	int32  error = 0;
+	char   errBuff[2048] = { '\0' };
+	int32  read = 0;
+	double sensorCalibSum[MAX_VALUES] = { 0.0f,0.0f,0.0f,0.0f,0.0f,0.0f };
+	int    sensorCalibCount = 0;
+
+	while(sensorCalibCount < biasNum)
+	{
+		DAQmxErrChk(DAQmxReadAnalogF64(taskHandle, 1, 10.0, DAQmx_Val_GroupByScanNumber, voltage, MAX_VALUES, &read, NULL));
+		if (read > 0)
+		{
+			for (int index = 0; index < MAX_VALUES; index++) {
+				sensorCalibSum[index] = sensorCalibSum[index] + voltage[index];
+			}
+			sensorCalibCount++;
+		}
+	}
+	float mean[MAX_VALUES];
+	for (int index = 0; index < MAX_VALUES; index++) {
+		mean[index] = sensorCalibSum[index] / float(sensorCalibCount);
+		sensorCalibSum[index] = 0.0f;
+	}
+	sensorCalibCount++;
+	Bias(cal, mean);
+
+	printf("Bias calculation completed\n");
+
+Error:
+	if (DAQmxFailed(error)) {
+		DAQmxGetExtendedErrorInfo(errBuff, 2048);
+		/*********************************************/
+		// DAQmx Stop Code
+		/*********************************************/
+		DAQmxStopTask(taskHandle);
+		DAQmxClearTask(taskHandle);
+		printf("DAQmx Error: %s\n", errBuff);
+		printf("Failed to remove bias from ATI Nano sensor\n");
+		stoped = true;
+	}
 }
 
 int32 CVICALLBACK initDAQ()
 {
 	int32       error = 0;
 	char        errBuff[2048] = { '\0' };
-
+	
 	DAQmxErrChk(DAQmxCreateTask("forceRead", &taskHandle));
 	DAQmxErrChk(DAQmxCreateAIVoltageChan(taskHandle, CONCAT_DEVICE("ai0"), "", DAQmx_Val_Cfg_Default, -10.0, 10.0, DAQmx_Val_Volts, NULL));
 	DAQmxErrChk(DAQmxCreateAIVoltageChan(taskHandle, CONCAT_DEVICE("ai1"), "", DAQmx_Val_Cfg_Default, -10.0, 10.0, DAQmx_Val_Volts, NULL));
@@ -59,8 +99,10 @@ int32 CVICALLBACK initDAQ()
 
 	DAQmxErrChk(DAQmxCfgSampClkTiming(taskHandle, "", 1000.0, DAQmx_Val_Rising, DAQmx_Val_ContSamps, 1));
 
+#ifdef ASYNC_READ
 	DAQmxErrChk(DAQmxRegisterEveryNSamplesEvent(taskHandle, DAQmx_Val_Acquired_Into_Buffer, 1, 0, EveryNCallback, NULL));
 	DAQmxErrChk(DAQmxRegisterDoneEvent(taskHandle, 0, DoneCallback, NULL));
+#endif
 
 	/*********************************************/
 	// DAQmx Start Code
@@ -69,6 +111,10 @@ int32 CVICALLBACK initDAQ()
 
 	//printf("Generating voltage continuously. Press Enter to interrupt\n");
 	started = true;
+	if (biased)
+	{
+		removeBias();
+	}
 	while(!stoped)
 	{ }
 	started = false;
@@ -89,11 +135,26 @@ Error:
 	return 1;
 }
 
+void StartForceThread()
+{
+	if (started)
+		return;
+	started = false;
+	std::thread forceThread(initDAQ);
+	forceThread.detach();
+}
+
+void StopForceThread()
+{
+	stoped = true;
+	while (started) {}
+}
+
+#ifdef  ASYNC_READ
 int32 CVICALLBACK EveryNCallback(TaskHandle taskHandle, int32 everyNsamplesEventType, uInt32 nSamples, void* callbackData)
 {
 	int32       error = 0;
 	char        errBuff[2048] = { '\0' };
-	static int  totalRead = 0;
 	int32       read = 0;
 
 	/*********************************************/
@@ -101,34 +162,11 @@ int32 CVICALLBACK EveryNCallback(TaskHandle taskHandle, int32 everyNsamplesEvent
 	/*********************************************/
 	DAQmxErrChk(DAQmxReadAnalogF64(taskHandle, 1, 10.0, DAQmx_Val_GroupByScanNumber, voltage, MAX_VALUES, &read, NULL));
 	if (read > 0) {
-		if (sensorCalibCount < biasNum) {
-			for (int index = 0; index < MAX_VALUES; index++) {
-				sensorCalibSum[index] = sensorCalibSum[index] + voltage[index];
-			}
-			sensorCalibCount++;
+		float volFloat[MAX_VALUES];
+		for (int index = 0; index < MAX_VALUES; index++) {
+			volFloat[index] = voltage[index];
 		}
-		else {
-			float volFloat[MAX_VALUES];
-			for (int index = 0; index < MAX_VALUES; index++) {
-				volFloat[index] = voltage[index];
-			}
-			if (sensorCalibCount == biasNum) {
-				float mean[MAX_VALUES];
-				for (int index = 0; index < MAX_VALUES; index++) {
-					mean[index] = sensorCalibSum[index] / float(sensorCalibCount);
-					sensorCalibSum[index] = 0.0f;
-				}
-				sensorCalibCount++;
-				Bias(cal, mean);
-				biased = false;
-				printf("Bias calculation completed\n");
-			}
-			else if (sensorCalibCount > biasNum)
-			{
-				ConvertToFT(cal, volFloat, FT);
-				doAction(FT);
-			}
-		}
+		ConvertToFT(cal, volFloat, FT);
 	}
 
 Error:
@@ -162,21 +200,7 @@ Error:
 	return 0;
 }
 
-void StartForceThread()
-{
-	if (started)
-		return;
-	started = false;
-	std::thread forceThread(initDAQ);
-	forceThread.detach();
-}
-
-void StopForceThread()
-{
-	stoped = true;
-	while (started){}
-}
-
+#else
 void getData(float(&data)[MAX_VALUES])
 {
 	int32       error = 0;
@@ -206,3 +230,4 @@ Error:
 		stoped = true;
 	}
 }
+#endif

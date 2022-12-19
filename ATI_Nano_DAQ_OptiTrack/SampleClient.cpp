@@ -26,7 +26,7 @@ std::ofstream   g_outputFile;
 sNatNetClientConnectParams g_connectParams;
 int g_analogSamplesPerMocapFrame = 0;
 sServerDescription g_serverDescription;
-std::string fName = "output.csv";
+std::string fName = "output";
 bool chosen = false;
 char r = '1';
 float forceData[MAX_VALUES] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };

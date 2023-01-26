@@ -16,7 +16,7 @@ char            r = '1';
 std::ofstream   myfile;
 bool            first = true;
 HDErrorInfo     error;
-HHD             hHD;
+HHD             hHD; 
 std::chrono::time_point<std::chrono::steady_clock> previous, current;
 std::vector<std::array<float, 10>> dataPoints;
 
